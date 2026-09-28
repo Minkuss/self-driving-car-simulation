@@ -17,5 +17,5 @@ This repository uses a single-context domain-doc layout. See `docs/agents/domain
 - Use strict TypeScript and type hints at Python data boundaries. Name units, thresholds, and physical constants explicitly.
 - Write code comments in English. Explain non-obvious formulas, invariants, coordinate systems, and reasons for decisions; do not narrate obvious code.
 - Test non-trivial behavior at the highest useful seam and check the TypeScript/Python/ONNX contracts. Scale tests to risk; trivial UI changes need no new tests.
-- Keep generated datasets, training logs, and temporary weights out of the repository. Preserve reproducible generation/training settings and the final model artifact.
+- Keep generated datasets, training logs, and temporary weights out of the repository. In particular, `training/examples.jsonl` is ignored. Preserve reproducible generation/training settings and commit the published ONNX model, manifest and required WASM runtime in `public/models/`.
 - Explore the repository narrowly. Do not spawn subagents, commit, or push unless explicitly requested.

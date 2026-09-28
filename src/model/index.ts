@@ -3,10 +3,13 @@ import * as ort from "onnxruntime-web";
 import {
   CONTRACT_VERSION,
   policyActions,
+  observationSize,
   type ModelManifest,
   type Observation,
   type PolicyAction,
 } from "../contract";
+
+ort.env.wasm.wasmPaths = "models/";
 
 export interface DrivingPolicy {
   decide(observation: Observation): Promise<PolicyAction>;
@@ -22,6 +25,10 @@ export async function loadDrivingPolicy(manifest: ModelManifest): Promise<Drivin
     async decide(observation) {
       if (observation.contractVersion !== CONTRACT_VERSION) {
         throw new Error("The observation contract is incompatible with this model.");
+      }
+
+      if (observation.values.length !== observationSize || !observation.values.every(Number.isFinite)) {
+        throw new Error("The observation does not match the model contract.");
       }
 
       const input = new ort.Tensor("float32", Float32Array.from(observation.values), [1, observation.values.length]);

@@ -1,23 +1,27 @@
-export const CONTRACT_VERSION = "1" as const;
+import policyContract from "./policy-contract.json" with { type: "json" };
 
-export const policyActions = ["drive", "cautious", "stop"] as const;
-export type PolicyAction = (typeof policyActions)[number];
+export const CONTRACT_VERSION = policyContract.version;
+
+export type PolicyAction = "drive" | "cautious" | "stop";
+export const policyActions: readonly PolicyAction[] = policyContract.actions as PolicyAction[];
+export const observationSize = policyContract.observations.length;
 
 /** Ordered feature vector shared by the simulator, trainer, and published model. */
 export interface Observation {
-  readonly contractVersion: typeof CONTRACT_VERSION;
+  readonly contractVersion: string;
   readonly values: readonly number[];
 }
 
 export interface TrainingExample {
-  readonly contractVersion: typeof CONTRACT_VERSION;
+  readonly contractVersion: string;
   readonly runId: string;
+  readonly initialState: { readonly runId: string };
   readonly observation: readonly number[];
   readonly action: PolicyAction;
 }
 
 export interface ModelManifest {
-  readonly contractVersion: typeof CONTRACT_VERSION;
+  readonly contractVersion: string;
   readonly modelVersion: string;
   readonly modelPath: string;
 }

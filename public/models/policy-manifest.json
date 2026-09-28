@@ -1,0 +1,5 @@
+{
+  "contractVersion": "1",
+  "modelVersion": "first-driving-policy-v1",
+  "modelPath": "models/first-driving-policy.onnx"
+}

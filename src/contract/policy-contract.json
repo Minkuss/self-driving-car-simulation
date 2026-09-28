@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "observations": [
+    {
+      "name": "distanceToDestinationPixels",
+      "unit": "pixels",
+      "missingValue": 0
+    },
+    {
+      "name": "speedPixelsPerSecond",
+      "unit": "pixelsPerSecond",
+      "missingValue": 0
+    }
+  ],
+  "actions": ["drive", "cautious", "stop"]
+}

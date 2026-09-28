@@ -6,4 +6,4 @@ if (container === null) {
   throw new Error("Application container is missing.");
 }
 
-startApp(container);
+void startApp(container);

@@ -1,8 +1,8 @@
 # Autonomous City
 
-Static TypeScript web shell and separate offline Python training workflow for
-the Autonomous City MVP. The current milestone provides project boundaries;
-it deliberately contains no road behavior.
+TypeScript city simulation with an ONNX driving policy in the browser and a
+separate offline Python training workflow. The autonomous car follows visible
+routes between reachable destinations and begins a new trip after arrival.
 
 ## Supported versions
 
@@ -16,15 +16,18 @@ npm ci
 npm run dev
 npm run typecheck
 npm run lint
+npm run check:simulator
 npm run build
 ```
 
-The web shell uses native Canvas 2D. `src/simulator` owns world behavior,
-`src/model` isolates ONNX Runtime Web, `src/contract` owns the versioned
-TypeScript/Python contract, and `src/ui` only renders snapshots.
+The app uses native Canvas 2D. `src/simulator` owns world behavior,
+`src/model` runs the published ONNX policy through ONNX Runtime Web,
+`src/contract` owns the versioned TypeScript/Python contract, and `src/ui`
+only renders snapshots.
 
 ## Training
 
 Follow [the training setup](training/README.md). Generated datasets, logs,
-temporary weights and browser build output are ignored. Future published model
-and manifest files belong in `public/models/`.
+temporary weights and browser build output are ignored. The published ONNX
+model, manifest and required WASM runtime in `public/models/` are source
+artifacts and must be committed.
