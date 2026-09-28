@@ -1,5 +1,5 @@
 {
-  "contractVersion": "2",
-  "modelVersion": "traffic-light-policy-v2",
+  "contractVersion": "3",
+  "modelVersion": "curated-routes-policy-v4",
   "modelPath": "models/first-driving-policy.onnx"
 }

@@ -15,7 +15,7 @@ export interface Observation {
 export interface TrainingExample {
   readonly contractVersion: string;
   readonly runId: string;
-  readonly initialState: { readonly runId: string };
+  readonly initialState: { readonly runId: string; readonly scenario?: string };
   readonly observation: readonly number[];
   readonly action: PolicyAction;
 }

@@ -53,10 +53,18 @@ export function createAppView(container: HTMLElement): AppView {
         context.lineTo(snapshot.trafficLight.stopLine.end.x, snapshot.trafficLight.stopLine.end.y);
         context.stroke();
       }
+      context.fillStyle = "#ffffff";
+      for (let x = 372; x <= 424; x += 13) context.fillRect(x, 218, 7, 24);
       context.fillStyle = snapshot.trafficLight.signal === "red" ? "#e74c3c" : "#39b96b";
       context.beginPath();
       context.arc(400, 78, 10, 0, Math.PI * 2);
       context.fill();
+      if (snapshot.pedestrian !== undefined) {
+        context.fillStyle = "#222b45";
+        context.beginPath();
+        context.arc(snapshot.pedestrian.x, snapshot.pedestrian.y, 7, 0, Math.PI * 2);
+        context.fill();
+      }
       context.strokeStyle = "#f6d365";
       context.lineWidth = 4;
       context.setLineDash([10, 12]);

@@ -10,7 +10,7 @@ async function loadPublishedPolicy(): Promise<DrivingPolicy> {
 }
 
 export async function startApp(container: HTMLElement): Promise<void> {
-  const simulator = createSimulator({ runId: crypto.randomUUID() });
+  const simulator = createSimulator({ runId: "public-demo" });
   const view = createAppView(container);
   let policyDisplay: PolicyDisplay = { status: "Loading driving policy", log: [] };
   let policy: DrivingPolicy;
@@ -33,15 +33,16 @@ export async function startApp(container: HTMLElement): Promise<void> {
       const snapshot = simulator.getSnapshot();
       const previousAction = policyDisplay.action;
       const events = simulator.step(action);
-      const safetyLog = events.some((event) => event.type === "safety-intervention")
-        ? [`${snapshot.elapsedSeconds.toFixed(1)} s · safety intervention · red signal`]
+      const safetyEvent = events.find((event) => event.type === "safety-intervention");
+      const safetyLog = safetyEvent !== undefined
+        ? [`${snapshot.elapsedSeconds.toFixed(1)} s · safety intervention · ${safetyEvent.hazard === "red-signal" ? "red signal" : "pedestrian"}`]
         : [];
       policyDisplay = {
         status: "Driving policy",
         action,
         log: previousAction === action
           ? [...safetyLog, ...policyDisplay.log].slice(0, 6)
-          : [`${snapshot.elapsedSeconds.toFixed(1)} s · ${action} · signal ${snapshot.trafficLight.signal}`, ...safetyLog, ...policyDisplay.log].slice(0, 6),
+          : [`${snapshot.elapsedSeconds.toFixed(1)} s · ${action} · ${snapshot.pedestrian === undefined ? `signal ${snapshot.trafficLight.signal}` : "pedestrian crossing"}`, ...safetyLog, ...policyDisplay.log].slice(0, 6),
       };
       unprocessedSeconds -= SIMULATION_STEP_SECONDS;
       deciding = false;

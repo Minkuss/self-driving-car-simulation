@@ -1,8 +1,12 @@
 # Autonomous City
 
 TypeScript city simulation with an ONNX driving policy in the browser and a
-separate offline Python training workflow. The autonomous car follows visible
-routes between reachable destinations and begins a new trip after arrival.
+separate offline Python training workflow. The autonomous car continuously
+cycles four visible, hand-authored routes: red-stop-then-green, green
+permission, and pedestrian crossings in both directions. Routes are validated
+against the map but are never randomly selected or searched at runtime. Add a
+new road event only with paired route variants, focused checks, and
+TypeScript-generated training examples.
 
 ## Supported versions
 

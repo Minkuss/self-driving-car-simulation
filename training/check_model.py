@@ -14,7 +14,7 @@ MODEL_PATH = ROOT / "public" / "models" / "first-driving-policy.onnx"
 
 def main() -> None:
     scores = ort.InferenceSession(str(MODEL_PATH)).run(
-        None, {"observation": np.asarray([[500, 0, 400, 0]], dtype=np.float32)},
+        None, {"observation": np.asarray([[500, 0, 400, 0, -1, -1, 0]], dtype=np.float32)},
     )[0]
     if int(scores.argmax(axis=1)[0]) != 0:
         raise AssertionError("The published model must drive when the red signal is still far away.")

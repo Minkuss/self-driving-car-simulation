@@ -1,5 +1,5 @@
 import { CONTRACT_VERSION, type PolicyAction, type TrainingExample } from "../contract/index.js";
-import { createSimulator } from "./index.js";
+import { createSimulator, curatedRouteIds } from "./index.js";
 
 declare const process: {
   readonly argv: readonly string[];
@@ -7,7 +7,10 @@ declare const process: {
 };
 
 function expertAction(values: readonly number[]): PolicyAction {
-  const [distanceToDestinationPixels, , distanceToStopLinePixels, trafficLightSignal] = values;
+  const [distanceToDestinationPixels, , distanceToStopLinePixels, trafficLightSignal, distanceToCrosswalkPixels, pedestrianCrosswalkPosition] = values;
+  if (pedestrianCrosswalkPosition >= 0 && distanceToCrosswalkPixels >= 0) {
+    return distanceToCrosswalkPixels > 160 ? "drive" : distanceToCrosswalkPixels > 45 ? "cautious" : "stop";
+  }
   if (trafficLightSignal === 0 && distanceToStopLinePixels >= 0) {
     return distanceToStopLinePixels > 160 ? "drive" : distanceToStopLinePixels > 45 ? "cautious" : "stop";
   }
@@ -19,7 +22,7 @@ export function createTrainingExamples(runCount = 8): readonly TrainingExample[]
   for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
     const simulator = createSimulator({
       runId: `training-${runIndex}`,
-      ...(runIndex % 2 === 0 ? { scenario: "traffic-light-red" as const } : {}),
+      scenario: curatedRouteIds[runIndex % curatedRouteIds.length],
     });
     for (let step = 0; step < 3_000; step += 1) {
       const observation = simulator.getObservation();
@@ -30,7 +33,7 @@ export function createTrainingExamples(runCount = 8): readonly TrainingExample[]
       examples.push({
         contractVersion: CONTRACT_VERSION,
         runId: `training-${runIndex}`,
-        initialState: { runId: `training-${runIndex}` },
+        initialState: { runId: `training-${runIndex}`, scenario: curatedRouteIds[runIndex % curatedRouteIds.length] },
         observation: observation.values,
         action,
       });

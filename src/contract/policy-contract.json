@@ -1,5 +1,5 @@
 {
-  "version": "2",
+  "version": "3",
   "observations": [
     {
       "name": "distanceToDestinationPixels",
@@ -19,6 +19,21 @@
     {
       "name": "trafficLightSignal",
       "unit": "0=red, 1=green",
+      "missingValue": 0
+    },
+    {
+      "name": "distanceToCrosswalkPixels",
+      "unit": "pixels",
+      "missingValue": -1
+    },
+    {
+      "name": "pedestrianCrosswalkPosition",
+      "unit": "0=entry, 1=exit",
+      "missingValue": -1
+    },
+    {
+      "name": "pedestrianCrossingSpeedPixelsPerSecond",
+      "unit": "pixelsPerSecond",
       "missingValue": 0
     }
   ],
