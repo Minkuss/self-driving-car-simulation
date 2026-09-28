@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "check:simulator": "tsc --noEmit false --outDir .simulator-check && node .simulator-check/simulator/first-run.check.js"
   },
   "dependencies": {
     "onnxruntime-web": "1.19.2"

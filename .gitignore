@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.simulator-check/
 .venv/
 __pycache__/
 *.py[cod]
