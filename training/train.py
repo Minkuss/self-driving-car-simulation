@@ -24,10 +24,10 @@ class Policy(nn.Module):
         super().__init__()
         self.register_buffer("mean", mean)
         self.register_buffer("scale", scale)
-        self.linear = nn.Linear(2, 3)
+        self.network = nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Linear(8, 3))
 
     def forward(self, observation: Tensor) -> Tensor:
-        return self.linear((observation - self.mean) / self.scale)
+        return self.network((observation - self.mean) / self.scale)
 
 
 def read_examples(contract: dict[str, Any]) -> tuple[Tensor, Tensor]:
@@ -58,9 +58,11 @@ def main() -> None:
     scale = observations.std(dim=0).clamp_min(1)
     model = Policy(mean, scale)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.03)
-    for _ in range(2_000):
+    # Red-light stopping is less frequent than driving, so balance labels instead of teaching a drive-only policy.
+    class_weights = actions.bincount(minlength=3).sum() / (3 * actions.bincount(minlength=3).clamp_min(1))
+    for _ in range(5_000):
         optimizer.zero_grad()
-        loss = nn.functional.cross_entropy(model(observations), actions)
+        loss = nn.functional.cross_entropy(model(observations), actions, weight=class_weights)
         loss.backward()
         optimizer.step()
 
@@ -84,7 +86,7 @@ def main() -> None:
         raise RuntimeError("PyTorch and ONNX selected different actions.")
     (MODELS_PATH / "policy-manifest.json").write_text(json.dumps({
         "contractVersion": contract["version"],
-        "modelVersion": "first-driving-policy-v1",
+        "modelVersion": "traffic-light-policy-v2",
         "modelPath": "models/first-driving-policy.onnx",
     }, indent=2) + "\n")
 

@@ -7,7 +7,7 @@ import {
   type ModelManifest,
   type Observation,
   type PolicyAction,
-} from "../contract";
+} from "../contract/index.js";
 
 ort.env.wasm.wasmPaths = "models/";
 

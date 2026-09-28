@@ -12,8 +12,22 @@ export interface EgoCarSnapshot extends Point {
   readonly speedPixelsPerSecond: number;
 }
 
+export type TrafficLightSignal = "red" | "green";
+
+export interface StopLineSnapshot {
+  readonly start: Point;
+  readonly end: Point;
+}
+
+export interface TrafficLightSnapshot {
+  readonly signal: TrafficLightSignal;
+  readonly stopLine?: StopLineSnapshot;
+  readonly distanceToStopLinePixels: number;
+}
+
 export interface WorldSeed {
   readonly runId: string;
+  readonly scenario?: "traffic-light-red" | "traffic-light-green";
 }
 
 export interface WorldSnapshot {
@@ -25,11 +39,14 @@ export interface WorldSnapshot {
   readonly destination: Point;
   readonly completedTrips: number;
   readonly distanceToDestinationPixels: number;
+  readonly trafficLight: TrafficLightSnapshot;
+  readonly safetyInterventions: number;
 }
 
 export type WorldEvent =
   | { readonly type: "arrived"; readonly destination: Point }
-  | { readonly type: "route-selected"; readonly destination: Point };
+  | { readonly type: "route-selected"; readonly destination: Point }
+  | { readonly type: "safety-intervention"; readonly signal: TrafficLightSignal };
 
 export interface Simulator {
   getObservation(): Observation;
@@ -39,6 +56,12 @@ export interface Simulator {
 
 interface MapNode extends Point {
   readonly id: string;
+}
+
+interface RouteData {
+  readonly points: readonly Point[];
+  readonly stopLine?: StopLineSnapshot;
+  readonly stopLineDistance?: number;
 }
 
 const MAP_NODES: readonly MapNode[] = [
@@ -58,6 +81,8 @@ const ROAD_CENTERLINES = ROAD_CONNECTIONS.map(([startId, endId]) => [nodesById.g
 const targetSpeeds: Record<PolicyAction, number> = { drive: 85, cautious: 42, stop: 0 };
 const MAX_ACCELERATION_PIXELS_PER_SECOND_SQUARED = 90;
 const TURN_RADIUS_PIXELS = 28;
+const STOP_LINE_OFFSET_PIXELS = 42;
+const TRAFFIC_LIGHT_PHASE_SECONDS = 7;
 
 function distance(start: Point, end: Point): number {
   return Math.hypot(end.x - start.x, end.y - start.y);
@@ -112,6 +137,59 @@ function routeLength(route: readonly Point[]): number {
   return route.slice(1).reduce((total, point, index) => total + distance(route[index], point), 0);
 }
 
+function distanceAlongRouteAt(route: readonly Point[], point: Point): number {
+  // Project map geometry onto the smoothed route so the car and stop line share one distance coordinate system.
+  let travelled = 0;
+  let closestDistance = Infinity;
+  let closestProgress = 0;
+  for (let index = 0; index < route.length - 1; index += 1) {
+    const start = route[index];
+    const end = route[index + 1];
+    const length = distance(start, end);
+    const projection = Math.max(0, Math.min(1,
+      ((point.x - start.x) * (end.x - start.x) + (point.y - start.y) * (end.y - start.y)) / (length * length),
+    ));
+    const projected = {
+      x: start.x + (end.x - start.x) * projection,
+      y: start.y + (end.y - start.y) * projection,
+    };
+    if (distance(point, projected) < closestDistance) {
+      closestDistance = distance(point, projected);
+      closestProgress = travelled + length * projection;
+    }
+    travelled += length;
+  }
+  return closestProgress;
+}
+
+function routeData(nodes: readonly MapNode[]): RouteData {
+  const points = smoothRoute(nodes);
+  for (let index = 1; index < nodes.length; index += 1) {
+    const controlledNode = nodes[index];
+    if (controlledNode.id !== "north" && controlledNode.id !== "south") continue;
+    const previous = nodes[index - 1];
+    const length = distance(previous, controlledNode);
+    const unit = {
+      x: (controlledNode.x - previous.x) / length,
+      y: (controlledNode.y - previous.y) / length,
+    };
+    const center = {
+      x: controlledNode.x - unit.x * STOP_LINE_OFFSET_PIXELS,
+      y: controlledNode.y - unit.y * STOP_LINE_OFFSET_PIXELS,
+    };
+    const perpendicular = { x: -unit.y * 15, y: unit.x * 15 };
+    return {
+      points,
+      stopLine: {
+        start: { x: center.x - perpendicular.x, y: center.y - perpendicular.y },
+        end: { x: center.x + perpendicular.x, y: center.y + perpendicular.y },
+      },
+      stopLineDistance: distanceAlongRouteAt(points, center),
+    };
+  }
+  return { points };
+}
+
 function positionOnRoute(route: readonly Point[], routeDistance: number): EgoCarSnapshot {
   let remaining = Math.min(routeDistance, routeLength(route));
   for (let index = 0; index < route.length - 1; index += 1) {
@@ -147,60 +225,98 @@ function seededIndex(seed: string, selection: number, count: number): number {
 }
 
 export function createSimulator(seed: WorldSeed): Simulator {
-  let elapsedSeconds = 0;
+  let elapsedSeconds = seed.scenario === "traffic-light-green" ? TRAFFIC_LIGHT_PHASE_SECONDS : 0;
   let speedPixelsPerSecond = 0;
   let completedTrips = 0;
   let selection = 0;
+  let safetyInterventions = 0;
   let currentNodeId = "south-west";
-  let destinationId = MAP_NODES[seededIndex(seed.runId, selection, MAP_NODES.length)].id;
+  let destinationId = seed.scenario === undefined
+    ? MAP_NODES[seededIndex(seed.runId, selection, MAP_NODES.length)].id
+    : "north-east";
   if (destinationId === currentNodeId) destinationId = "north-east";
-  let route = smoothRoute(pathBetween(currentNodeId, destinationId));
+  let currentRoute = routeData(pathBetween(currentNodeId, destinationId));
   let distanceAlongRoute = 0;
+  const signal = (): TrafficLightSignal => Math.floor(elapsedSeconds / TRAFFIC_LIGHT_PHASE_SECONDS) % 2 === 0 ? "red" : "green";
+  const distanceToStopLine = () => currentRoute.stopLineDistance === undefined
+    ? -1
+    : Math.max(-1, currentRoute.stopLineDistance - distanceAlongRoute);
 
   function selectNextRoute(): void {
     currentNodeId = destinationId;
     selection += 1;
     const candidates = MAP_NODES.filter((node) => node.id !== currentNodeId);
     destinationId = candidates[seededIndex(seed.runId, selection, candidates.length)].id;
-    route = smoothRoute(pathBetween(currentNodeId, destinationId));
+    currentRoute = routeData(pathBetween(currentNodeId, destinationId));
     distanceAlongRoute = 0;
+  }
+
+  function snapshot(): WorldSnapshot {
+    const stopDistance = distanceToStopLine();
+    return {
+      runId: seed.runId,
+      elapsedSeconds,
+      egoCar: { ...positionOnRoute(currentRoute.points, distanceAlongRoute), speedPixelsPerSecond },
+      roadCenterlines: ROAD_CENTERLINES,
+      route: currentRoute.points,
+      destination: nodesById.get(destinationId)!,
+      completedTrips,
+      distanceToDestinationPixels: Math.max(0, routeLength(currentRoute.points) - distanceAlongRoute),
+      trafficLight: {
+        signal: signal(),
+        distanceToStopLinePixels: Math.max(-1, stopDistance),
+        ...(currentRoute.stopLine === undefined ? {} : { stopLine: currentRoute.stopLine }),
+      },
+      safetyInterventions,
+    };
   }
 
   return {
     getObservation: () => ({
       contractVersion: CONTRACT_VERSION,
-      values: [Math.max(0, routeLength(route) - distanceAlongRoute), speedPixelsPerSecond],
+      values: [
+        Math.max(0, routeLength(currentRoute.points) - distanceAlongRoute),
+        speedPixelsPerSecond,
+        distanceToStopLine(),
+        signal() === "red" ? 0 : 1,
+      ],
     }),
     step: (action) => {
-      const remainingDistance = Math.max(0, routeLength(route) - distanceAlongRoute);
-      const targetSpeed = Math.min(
+      const remainingDistance = Math.max(0, routeLength(currentRoute.points) - distanceAlongRoute);
+      const stopDistance = distanceToStopLine();
+      const redStopLineAhead = signal() === "red" && stopDistance >= 0;
+      const requestedTargetSpeed = Math.min(
         targetSpeeds[action],
         Math.sqrt(2 * MAX_ACCELERATION_PIXELS_PER_SECOND_SQUARED * remainingDistance),
       );
+      // v² = 2ad gives the highest speed that can still brake to zero at the stop line.
+      const safeTargetSpeed = redStopLineAhead
+        ? Math.sqrt(2 * MAX_ACCELERATION_PIXELS_PER_SECOND_SQUARED * stopDistance)
+        : requestedTargetSpeed;
+      const safetyIntervention = redStopLineAhead && requestedTargetSpeed > safeTargetSpeed;
+      const targetSpeed = Math.min(requestedTargetSpeed, safeTargetSpeed);
       const speedChange = MAX_ACCELERATION_PIXELS_PER_SECOND_SQUARED * SIMULATION_STEP_SECONDS;
       speedPixelsPerSecond += Math.max(-speedChange, Math.min(speedChange, targetSpeed - speedPixelsPerSecond));
-      distanceAlongRoute = Math.min(routeLength(route), distanceAlongRoute + speedPixelsPerSecond * SIMULATION_STEP_SECONDS);
+      distanceAlongRoute = Math.min(routeLength(currentRoute.points), distanceAlongRoute + speedPixelsPerSecond * SIMULATION_STEP_SECONDS);
+      if (redStopLineAhead && currentRoute.stopLineDistance !== undefined) {
+        // The discrete integration step must never carry the car past a red stop line.
+        distanceAlongRoute = Math.min(distanceAlongRoute, currentRoute.stopLineDistance);
+      }
       elapsedSeconds += SIMULATION_STEP_SECONDS;
-      const distanceToDestination = routeLength(route) - distanceAlongRoute;
-      if (distanceToDestination > 1 || speedPixelsPerSecond !== 0) return [];
-      distanceAlongRoute = routeLength(route);
+      const events: WorldEvent[] = safetyIntervention ? [{ type: "safety-intervention", signal: "red" }] : [];
+      if (safetyIntervention) safetyInterventions += 1;
+      const distanceToDestination = routeLength(currentRoute.points) - distanceAlongRoute;
+      if (distanceToDestination > 1 || speedPixelsPerSecond !== 0) return events;
+      distanceAlongRoute = routeLength(currentRoute.points);
       const arrivedAt = nodesById.get(destinationId)!;
       completedTrips += 1;
       selectNextRoute();
       return [
+        ...events,
         { type: "arrived", destination: arrivedAt },
         { type: "route-selected", destination: nodesById.get(destinationId)! },
       ];
     },
-    getSnapshot: () => ({
-      runId: seed.runId,
-      elapsedSeconds,
-      egoCar: { ...positionOnRoute(route, distanceAlongRoute), speedPixelsPerSecond },
-      roadCenterlines: ROAD_CENTERLINES,
-      route,
-      destination: nodesById.get(destinationId)!,
-      completedTrips,
-      distanceToDestinationPixels: Math.max(0, routeLength(route) - distanceAlongRoute),
-    }),
+    getSnapshot: snapshot,
   };
 }

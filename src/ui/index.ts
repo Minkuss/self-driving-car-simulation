@@ -26,7 +26,7 @@ export function createAppView(container: HTMLElement): AppView {
 
   return {
     render(snapshot, policy) {
-      status.textContent = `Run ${snapshot.runId} · ${snapshot.elapsedSeconds.toFixed(1)} s · trips: ${snapshot.completedTrips} · destination: ${snapshot.destination.x}, ${snapshot.destination.y} · ${policy.status}${policy.action ? `: ${policy.action}` : ""}`;
+      status.textContent = `Run ${snapshot.runId} · ${snapshot.elapsedSeconds.toFixed(1)} s · trips: ${snapshot.completedTrips} · signal: ${snapshot.trafficLight.signal} · safety: ${snapshot.safetyInterventions} · ${policy.status}${policy.action ? `: ${policy.action}` : ""}`;
       decisionLog.replaceChildren(...policy.log.map((entry) => {
         const item = document.createElement("li");
         item.textContent = entry;
@@ -45,6 +45,18 @@ export function createAppView(container: HTMLElement): AppView {
         });
       }
       context.stroke();
+      if (snapshot.trafficLight.stopLine !== undefined) {
+        context.strokeStyle = "#ffffff";
+        context.lineWidth = 5;
+        context.beginPath();
+        context.moveTo(snapshot.trafficLight.stopLine.start.x, snapshot.trafficLight.stopLine.start.y);
+        context.lineTo(snapshot.trafficLight.stopLine.end.x, snapshot.trafficLight.stopLine.end.y);
+        context.stroke();
+      }
+      context.fillStyle = snapshot.trafficLight.signal === "red" ? "#e74c3c" : "#39b96b";
+      context.beginPath();
+      context.arc(400, 78, 10, 0, Math.PI * 2);
+      context.fill();
       context.strokeStyle = "#f6d365";
       context.lineWidth = 4;
       context.setLineDash([10, 12]);

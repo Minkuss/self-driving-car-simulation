@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check:simulator": "tsc --noEmit false --outDir .simulator-check && node .simulator-check/simulator/first-run.check.js",
+    "check:traffic-light": "tsc --noEmit false --outDir .simulator-check && node .simulator-check/model/traffic-light-policy.check.js",
     "generate:training": "tsc --noEmit false --outDir .simulator-check && node .simulator-check/simulator/export-training.js > training/examples.jsonl"
   },
   "dependencies": {

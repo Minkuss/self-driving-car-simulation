@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "observations": [
     {
       "name": "distanceToDestinationPixels",
@@ -9,6 +9,16 @@
     {
       "name": "speedPixelsPerSecond",
       "unit": "pixelsPerSecond",
+      "missingValue": 0
+    },
+    {
+      "name": "distanceToStopLinePixels",
+      "unit": "pixels",
+      "missingValue": -1
+    },
+    {
+      "name": "trafficLightSignal",
+      "unit": "0=red, 1=green",
       "missingValue": 0
     }
   ],

@@ -32,14 +32,17 @@ export async function startApp(container: HTMLElement): Promise<void> {
     void policy.decide(observation).then((action) => {
       const snapshot = simulator.getSnapshot();
       const previousAction = policyDisplay.action;
+      const events = simulator.step(action);
+      const safetyLog = events.some((event) => event.type === "safety-intervention")
+        ? [`${snapshot.elapsedSeconds.toFixed(1)} s · safety intervention · red signal`]
+        : [];
       policyDisplay = {
         status: "Driving policy",
         action,
         log: previousAction === action
-          ? policyDisplay.log
-          : [`${snapshot.elapsedSeconds.toFixed(1)} s · ${action} · ${snapshot.distanceToDestinationPixels.toFixed(0)} px to destination`, ...policyDisplay.log].slice(0, 6),
+          ? [...safetyLog, ...policyDisplay.log].slice(0, 6)
+          : [`${snapshot.elapsedSeconds.toFixed(1)} s · ${action} · signal ${snapshot.trafficLight.signal}`, ...safetyLog, ...policyDisplay.log].slice(0, 6),
       };
-      simulator.step(action);
       unprocessedSeconds -= SIMULATION_STEP_SECONDS;
       deciding = false;
     }).catch((error: unknown) => {
